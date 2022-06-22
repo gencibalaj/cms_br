@@ -1,9 +1,40 @@
 const slugify = require('slugify')
 
+const {getCategoryOrFail} = require('./../services/categoryService');
+const reactionService = require('./../services/reactionService');
+const commentService = require('./../services/commentService');
 const Post = require('./../models/Post');
+const Reaction = require('../models/Reaction');
 
-const all = async () => {
-	return await Post.find();
+const all = async (private) => {
+	if(private === true){
+		return await Post.find()
+		.populate('author')
+		.populate('category')
+	}
+	return await Post.find({private:false})
+		.populate('author')
+		.populate('category')
+}
+
+const allLikes = async()=>{
+	return await Reaction.aggregate([
+		
+			{$match: {'liked': 1} },
+			{$group:{_id: { post: "$post" },totalLikes: { $sum: 1 }
+			}}
+		
+	])	
+}
+
+const allFavorites = async()=>{
+	return await Reaction.aggregate([
+		
+			{$match: {'favorite': 1} },
+			{$group:{_id: { post: "$post" },totalFavorites: { $sum: 1 }
+			}}
+		
+	])	
 }
 
 const create = async (userId, data) => {
@@ -11,11 +42,14 @@ const create = async (userId, data) => {
 
 	const checkSlugResults = await searchBySlug(slug);
 
+	const category = await getCategoryOrFail(data.categoryId);
+	
 	const post = await new Post({
 		title: data.title,
 		description: data.description,
 		author: userId,
 		slug: checkSlugResults > 0 ? `${slug}-${checkSlugResults}` : slug,
+		category: category.id
 	}).save();
 
 	return {
@@ -24,29 +58,14 @@ const create = async (userId, data) => {
 }
 
 const update = async (id, data) => {
+	const category = await getCategoryOrFail(data.categoryId);
+	
 	const post = await Post.findOneAndUpdate(
-		{ id },
-		{
-			$set : {
-				description: data.description,
-			}
-		},
-		{new : true}
-	);
-
-	return {
-		post,
-	};
-}
-
-const like = async (slug) => {
-	const getPostBySlug = await Post.findOne({slug});
-
-	const post = await Post.findOneAndUpdate(
-		{ _id: getPostBySlug.id },
+		{ _id: id },
 		{
 			$set: {
-				liked: ++getPostBySlug.liked
+				description: data.description,
+				category: category.id,
 			},
 		},
 		{ new: true }
@@ -57,16 +76,61 @@ const like = async (slug) => {
 	};
 }
 
-const deletePost = async (id) => {
-	const postFound = await Post.findById(id);
-	if(!!postFound){
-		const post = await Post.findByIdAndDelete(id);
-		console.log("post found then deleted")
-		return {post}
-	}	
-	throw new Error("Post not found!")
+const comment = async (data) => {
+	const post = await Post.findOne({ slug : data.slug });
+
+	await commentService.create({
+		userId: data.id,
+		postId: post.id,
+		comment: data.comment,
+	});
+
+	return {
+		post,
+	};
+};
+
+const like = async (userId, slug) => {
+	const post = await Post.findOne({slug});
+
+	await reactionService.updateOrCreate({
+		userId,
+		postId: post.id,
+		liked: true
+	});
+
+	return {
+		post,
+	};
 }
 
+const favorite = async (userId, slug) => {
+	const post = await Post.findOne({slug});
+
+	await reactionService.updateOrCreate({
+		userId,
+		postId: post.id,
+		favorite: true,
+	});
+
+	return {
+		post,
+	};
+}
+
+const deletePost = async (id) => {
+	const post = await Post.findById(id);
+
+	if (!post) {
+		throw new Error('Post not found!');
+	}
+
+	await Post.deleteOne({ _id: id });
+
+	return {
+		post,
+	};
+};
 
 const searchBySlug = async (slug) => { 
 	const searchInput = new RegExp(slug, "i");
@@ -107,5 +171,9 @@ module.exports = {
 	getBySlug,
 	checkIfUserIsAuth,
 	isNotAllowed,
+	favorite,
+	comment,
 	like,
+	allLikes,
+	allFavorites
 };

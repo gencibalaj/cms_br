@@ -20,14 +20,14 @@ const create = async (data) => {
 
 const update = async (id, data) => {
 	const category = await Category.findOneAndUpdate(
-		{id},
+		{ _id: id },
 		{
-			$set : {
+			$set: {
 				title: data.title,
 				slug: data.slug,
-			}
+			},
 		},
-		{new : true}
+		{ new: true }
 	);
 
 	return {
@@ -36,25 +36,27 @@ const update = async (id, data) => {
 }
 
 const deleteCategory = async (id) => {
-	const categoryfound = await Category.findById(id);
-	if(!!categoryfound){
-		const category = await Category.findByIdAndDelete(id);
-		console.log("great")
-		return {category}
-	}	
-	throw new Error("Category not found!")
-}
+	const category = await Category.findById(id);
 
-const findOrFail = async (id) => {
-	
-	const category = await Category.findOneOrFail(id);
-	console.log(!!category)
-	if(!!category){
+	if(!category){
+		throw new Error('Category not found!');
+	}
+
+	await Category.deleteOne({_id : id});
+
 	return {
 		category,
-			}
+	};
+}
+
+const getCategoryOrFail = async (id) => {
+	const category = await Category.findById(id);
+
+	if(!category){
+		throw new Error('Category not found!');
 	}
-	return false
+
+	return category;
 }
 
 const searchBySlug = async (slug) => { 
@@ -80,5 +82,5 @@ module.exports = {
 	update,
 	deleteCategory,
 	getBySlug,
-	findOrFail,
+	getCategoryOrFail,
 };

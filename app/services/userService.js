@@ -23,11 +23,12 @@ const register = async (data) => {
 		username: data.username,
 		password: hashedPassword,
 	}).save();
-
+	// console.log(user)
 	const token = await createJwt({
 		id: user.id,
 		username: user.username,
 		name: `${user.firstName} ${user.lastName}`,
+		role: user.role,
 	});
 
 	return {

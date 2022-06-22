@@ -1,14 +1,15 @@
 const router = require('express').Router();
 
 const categoryController = require("../controllers/categoryController");
-const isAdmin = require('../middlewares/isAdmin');
-// const isAuthenticated = require('./../middlewares/auth'); 
+const isAuthenticated = require('./../middlewares/auth'); 
+const isAdmin = require('./../middlewares/isAdmin'); 
 
 router.get('/', categoryController.all);
-router.post('/create', isAdmin, categoryController.create);
-router.put('/:id/edit', isAdmin, categoryController.update);
+router.post('/create', isAuthenticated,isAdmin, categoryController.create);
+router.put('/:id/edit', isAuthenticated,isAdmin, categoryController.update);
 router.delete(
 	'/:id/delete',
+	isAuthenticated,
 	isAdmin,
 	categoryController.deleteCategory
 );

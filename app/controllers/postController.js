@@ -6,15 +6,19 @@ const {
 
 const all = async (req, res) => {
 	try {
-		const posts = await postService.all();
-
+		const postLikes = await postService.allLikes()
+		const postFavorites = await postService.allFavorites()
+		const posts = await postService.all(private=false);
 		return res.json({
 			success: true,
 			data: {
 				posts,
+				postLikes,
+				postFavorites
 			},
 		});
 	} catch (e) {
+		console.log(e)
 		return res.status(500).json({
 			success: false,
 			errors: {
@@ -23,6 +27,31 @@ const all = async (req, res) => {
 		});
 	}
 }; 
+
+const allAdmin = async (req, res) => {
+	try {
+		const postLikes = await postService.allLikes()
+		const postFavorites = await postService.allFavorites()
+		const posts = await postService.all(private=true);
+		return res.json({
+			success: true,
+			data: {
+				posts,
+				postLikes,
+				postFavorites
+			},
+		});
+	} catch (e) {
+		console.log(e)
+		return res.status(500).json({
+			success: false,
+			errors: {
+				msg: 'Something went wrong!',
+			},
+		});
+	}
+}; 
+
 
 const create = async (req, res) => {
 	const { errors, isValid } = validateCreatePostInput(req.body);
@@ -44,6 +73,14 @@ const create = async (req, res) => {
 			},
 		});
 	} catch (e) {
+		if (e.message === 'Category not found!') {
+			return res.status(404).json({
+				success: false,
+				errors: {
+					msg: e.message,
+				},
+			});
+		}
 		return res.status(500).json({
 			success: false,
 			errors: {
@@ -82,6 +119,40 @@ const update = async (req, res) => {
 			},
 		});
 	} catch (e) {
+		if (e.message === 'Category not found!') {
+			return res.status(404).json({
+				success: false,
+				errors: {
+					msg: e.message,
+				},
+			});
+		}
+
+		return res.status(500).json({
+			success: false,
+			errors: {
+				msg: 'Something went wrong!',
+			},
+		});
+	}
+}; 
+
+const comment = async (req, res) => {
+	try {
+		const { post } = await postService.comment({
+			id: req.user.id, 
+			slug: req.params.slug, 
+			...req.body
+		});
+
+		return res.json({
+			success: true,
+			data: {
+				post,
+			},
+		});
+	} catch (e) {
+		console.log(e);
 		return res.status(500).json({
 			success: false,
 			errors: {
@@ -102,7 +173,7 @@ const like = async (req, res) => {
 	}
 
 	try {
-		const { post } = await postService.like(req.params.slug);
+		const { post } = await postService.like(req.user.id, req.params.slug);
 
 		return res.json({
 			success: true,
@@ -111,6 +182,37 @@ const like = async (req, res) => {
 			},
 		});
 	} catch (e) {
+		console.log(e)
+		return res.status(500).json({
+			success: false,
+			errors: {
+				msg: 'Something went wrong!',
+			},
+		});
+	}
+}; 
+
+const favorite = async (req, res) => {
+	if (await postService.isNotAllowed(req.user, req.params.slug)) {
+		return res.status(400).json({
+			success: false,
+			errors: {
+				msg: 'You are not allowed!',
+			},
+		});
+	}
+
+	try {
+		const { post } = await postService.favorite(req.user.id, req.params.slug);
+
+		return res.json({
+			success: true,
+			data: {
+				post,
+			},
+		});
+	} catch (e) {
+		console.log(e);
 		return res.status(500).json({
 			success: false,
 			errors: {
@@ -126,7 +228,7 @@ const deletePost = async (req, res) => {
 		return res.status(401).json({
 			success: false,
 			errors: {
-				msg: 'Unathorized!',
+				msg: 'Unauthorizate!',
 			},
 		});
 	}
@@ -142,12 +244,15 @@ const deletePost = async (req, res) => {
 			},
 		});
 	} catch (e) {
-		if (e.message == "Post not found!") {
+		if (e.message === 'Post not found!') {
 			return res.status(404).json({
 				success: false,
-				error: e.message,
+				errors: {
+					msg: e.message,
+				},
 			});
 		}
+
 		return res.status(500).json({
 			success: false,
 			errors: {
@@ -161,6 +266,9 @@ module.exports = {
 	all,
 	create,
 	like,
+	favorite,
 	update,
-	deletePost
+	deletePost,
+	comment,
+	allAdmin,
 };
