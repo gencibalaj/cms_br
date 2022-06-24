@@ -1,6 +1,5 @@
 const { checkPassword } = require('../helpers/encrypting');
 
-const auth = require('./../middlewares/auth')
 const userService = require('./../services/userService');
 const validateLoginInput = require('./../validation/login');
 const {
@@ -171,7 +170,6 @@ const changePassword = async (req, res) => {
 
 const me = async (req,res) => {
 	try {
-		console.log(req.user)
 		const { user } = await userService.getUser(req.user.id);
 	
 		res.json({

@@ -4,37 +4,20 @@ const {getCategoryOrFail} = require('./../services/categoryService');
 const reactionService = require('./../services/reactionService');
 const commentService = require('./../services/commentService');
 const Post = require('./../models/Post');
-const Reaction = require('../models/Reaction');
 
-const all = async (private) => {
-	if(private === true){
-		return await Post.find()
-		.populate('author')
-		.populate('category')
-	}
-	return await Post.find({private:false})
-		.populate('author')
-		.populate('category')
-}
+const all = async (userRole) => {
+	const condition = userRole === 'admin' ? {} : {isPrivate : false};
+	const posts = await Post.find(condition);
 
-const allLikes = async()=>{
-	return await Reaction.aggregate([
-		
-			{$match: {'liked': 1} },
-			{$group:{_id: { post: "$post" },totalLikes: { $sum: 1 }
-			}}
-		
-	])	
-}
-
-const allFavorites = async()=>{
-	return await Reaction.aggregate([
-		
-			{$match: {'favorite': 1} },
-			{$group:{_id: { post: "$post" },totalFavorites: { $sum: 1 }
-			}}
-		
-	])	
+	return await Promise.all(posts.map(async (post) => {
+		// console.log(await reactionService.getLikesPerPost(post._id));
+		return {
+			...post._doc,
+			comments: await commentService.getCommentsPerPost(post._id),
+			likes: await reactionService.getLikesPerPost(post._id),
+			favorites: await reactionService.getFavoritesPerPost(post._id),
+		};
+	}));
 }
 
 const create = async (userId, data) => {
@@ -174,6 +157,4 @@ module.exports = {
 	favorite,
 	comment,
 	like,
-	allLikes,
-	allFavorites
 };

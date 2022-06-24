@@ -1,4 +1,5 @@
 const postService = require('./../services/postService');
+const commentService = require('./../services/commentService');
 const {
 	validateCreatePostInput,
 	validateUpdatePostInput,
@@ -6,15 +7,12 @@ const {
 
 const all = async (req, res) => {
 	try {
-		const postLikes = await postService.allLikes()
-		const postFavorites = await postService.allFavorites()
-		const posts = await postService.all(private=false);
+		const posts = await postService.all(req.user?.role || '');
+
 		return res.json({
 			success: true,
 			data: {
 				posts,
-				postLikes,
-				postFavorites
 			},
 		});
 	} catch (e) {
@@ -27,31 +25,6 @@ const all = async (req, res) => {
 		});
 	}
 }; 
-
-const allAdmin = async (req, res) => {
-	try {
-		const postLikes = await postService.allLikes()
-		const postFavorites = await postService.allFavorites()
-		const posts = await postService.all(private=true);
-		return res.json({
-			success: true,
-			data: {
-				posts,
-				postLikes,
-				postFavorites
-			},
-		});
-	} catch (e) {
-		console.log(e)
-		return res.status(500).json({
-			success: false,
-			errors: {
-				msg: 'Something went wrong!',
-			},
-		});
-	}
-}; 
-
 
 const create = async (req, res) => {
 	const { errors, isValid } = validateCreatePostInput(req.body);
@@ -162,6 +135,129 @@ const comment = async (req, res) => {
 	}
 }; 
 
+
+const replyComment = async (req, res) => {
+	try {
+		const  replyComment  = await commentService.replyComment(
+			req.user.id, 
+			req.params.parentCommentId,
+			req.body.comment
+		);
+		
+
+		return res.json({
+			success: true,
+			replyComment,
+			
+		});
+	} catch (e) {
+		if(e.message === "Parent comment not found!"){
+			return res.status(404).json({
+				success:false,
+				errors:{
+					msg:'Comment to reply to was not found!'
+				}
+			})
+		}
+		console.log(e)
+		return res.status(500).json({
+			success: false,
+			errors: {
+				msg: 'Something went wrong!',
+			},
+		});
+	}
+}; 
+
+
+const updateComment = async (req, res) => {
+	const { errors, isValid } = validateUpdateCommentInput(req.body);
+
+	if (!isValid) {
+		return res.status(422).json({
+			success: false,
+			errors,
+		});
+	}
+
+	if(!(await postService.checkIfUserIsAuth(req.user,req.params.id))){
+			return res.status(401).json({
+				success: false,
+				errors: {
+					msg : "Unauthorizate!"
+				},
+			});
+	}
+
+	try {
+		const { comment } = await commentService.update(req.params.id, req.body);
+
+		return res.json({
+			success: true,
+			data: {
+				comment,
+			},
+		});
+	} catch (e) {
+		if (e.message === 'Comment not found!') {
+			return res.status(404).json({
+				success: false,
+				errors: {
+					msg: e.message,
+				},
+			});
+		}
+
+		return res.status(500).json({
+			success: false,
+			errors: {
+				msg: 'Something went wrong!',
+			},
+		});
+	}
+}; 
+
+const deleteComment = async (req, res) => {
+
+	if (!(await commentService.checkIfUserIsAuth(req.user, req.params.id))) {
+		return res.status(401).json({
+			success: false,
+			errors: {
+				msg: 'Unauthorizate!',
+			},
+		});
+	}
+
+	try {
+		const { comment } = await commentService.deleteComment(req.params.id);
+
+		return res.json({
+			success: true,
+			data: {
+				msg: "Comment deleted successfully!",
+				comment,
+			},
+		});
+	} catch (e) {
+		if (e.message === 'Comment not found!') {
+			return res.status(404).json({
+				success: false,
+				errors: {
+					msg: e.message,
+				},
+			});
+		}
+
+		return res.status(500).json({
+			success: false,
+			errors: {
+				msg: 'Something went wrong!',
+			},
+		});
+	}
+};
+
+
 const like = async (req, res) => {
 	if(await postService.isNotAllowed(req.user,req.params.slug)){
 			return res.status(400).json({
@@ -270,5 +366,7 @@ module.exports = {
 	update,
 	deletePost,
 	comment,
-	allAdmin,
+	replyComment,
+	updateComment,
+	deleteComment
 };
